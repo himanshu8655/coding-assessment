@@ -1,5 +1,6 @@
 package com.example.codingtest
 
+import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -13,20 +14,18 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Callback
 import okhttp3.Call
-import android.widget.TextView
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import com.example.codingtest.adapters.CountryAdapter
+import com.example.codingtest.models.Country
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.io.IOException
-import org.json.JSONArray
 
-data class Country(val name: String, val region: String, val code: String, val capital: String)
 
 class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
-    private lateinit var countryList: ArrayList<Country>
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
@@ -40,10 +39,10 @@ class MainActivity : AppCompatActivity() {
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        fetchCountryData()
+        fetchCountryData(this)
     }
 
-    private fun fetchCountryData() {
+    private fun fetchCountryData(context:Context) {
         val client = OkHttpClient()
 
         val request = Request.Builder()
@@ -54,59 +53,32 @@ class MainActivity : AppCompatActivity() {
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string()
-                    val countriesJsonArray = JSONArray(responseBody)
+                    val gson = Gson()
+                    val countryListType = object : TypeToken<ArrayList<Country>>() {}.type
+                    val countryList: ArrayList<Country> = gson.fromJson(responseBody, countryListType)
 
-                    countryList = ArrayList()
-                    for (i in 0 until countriesJsonArray.length()) {
-                        val countryObject = countriesJsonArray.getJSONObject(i)
-                        val country = Country(
-                            countryObject.getString("name"),
-                            countryObject.getString("region"),
-                            countryObject.getString("code"),
-                            countryObject.getString("capital")
-                        )
-                        countryList.add(country)
+                    for (country in countryList) {
+                        country.name = country.name.takeIf { it.isNotEmpty() } ?: "Not available"
+                        country.region = country.region.takeIf { it.isNotEmpty() } ?: "Not available"
+                        country.code = country.code.takeIf { it.isNotEmpty() } ?: "N/A"
+                        country.capital = country.capital.takeIf { it.isNotEmpty() } ?: "Not available"
                     }
 
                     runOnUiThread {
                         recyclerView.adapter = CountryAdapter(countryList)
                     }
                 } else {
-                    showError("Failed to fetch data")
+                    runOnUiThread {
+                        Toast.makeText(context, "Failed to fetch data", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
 
             override fun onFailure(call: Call, e: IOException) {
-                showError("Error: ${e.message}")
+                runOnUiThread {
+                    Toast.makeText(context, "Failed to fetch data, ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         })
-    }
-
-    private fun showError(message: String) {
-        runOnUiThread {
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        }
-    }
-
-    class CountryAdapter(private val countries: List<Country>) : RecyclerView.Adapter<CountryAdapter.CountryViewHolder>() {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CountryViewHolder {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.country_item, parent, false)
-            return CountryViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: CountryViewHolder, position: Int) {
-            val country = countries[position]
-            holder.nameRegionTextView.text = "${country.name}, ${country.region}"
-            holder.codeTextView.text = country.code
-            holder.capitalTextView.text = country.capital
-        }
-
-        override fun getItemCount(): Int = countries.size
-
-        class CountryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val nameRegionTextView: TextView = itemView.findViewById(R.id.nameRegionTextView)
-            val codeTextView: TextView = itemView.findViewById(R.id.codeTextView)
-            val capitalTextView: TextView = itemView.findViewById(R.id.capitalTextView)
-        }
     }
 }

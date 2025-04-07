@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Coding Test</string>
+    <string name="capital">Capital</string>
+    <string name="name_region_text">Country Name, Region</string>
+    <string name="not_available">N/A</string>
 </resources>
